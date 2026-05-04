@@ -1,0 +1,36 @@
+package com.sportsscore.match_service.model;
+
+import jakarta.persistence.*;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
+@Getter
+@Setter
+@ToString
+@Entity
+@Table(name = "matches")
+public class Match {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String homeTeam;
+
+    @Column(nullable = false)
+    private String awayTeam;
+
+    private int homeScore = 0;
+    private int awayScore = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MatchStatus status;
+
+    public enum MatchStatus {
+        SCHEDULED, LIVE, FINISHED
+    }
+
+}
