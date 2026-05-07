@@ -37,9 +37,9 @@ public class MatchController {
         return ResponseEntity.ok(matchService.getAllMatches());
     }
 
-    @PutMapping()
-    public ResponseEntity<Match> updateScore(@PathVariable Long id, @RequestParam int homeScore,
-            @RequestParam int awayScore) {
+    @PutMapping("/{id}")
+    public ResponseEntity<Match> updateScore(@PathVariable("id") Long id, @RequestParam("homeScore") int homeScore,
+            @RequestParam("awayScore") int awayScore) {
 
         return ResponseEntity.ok(matchService.updateScore(id, homeScore, awayScore));
     }
