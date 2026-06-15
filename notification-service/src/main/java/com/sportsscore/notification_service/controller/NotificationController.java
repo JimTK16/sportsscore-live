@@ -1,5 +1,7 @@
 package com.sportsscore.notification_service.controller;
 
+import java.time.Duration;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -27,8 +29,16 @@ public class NotificationController {
     // connection open
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<ScoreUpdateEvent>> streamScores() {
-        return scoreConsumer.getScoreStream()
+        // 1. Our actual score data stream
+        Flux<ServerSentEvent<ScoreUpdateEvent>> dataStream = scoreConsumer.getScoreStream()
                 .map(event -> ServerSentEvent.<ScoreUpdateEvent>builder().data(event).build());
+
+        // 2. A heartbeat stream (sends an empty comment every 15 seconds)
+        Flux<ServerSentEvent<ScoreUpdateEvent>> keepAliveStream = Flux.interval(Duration.ofSeconds(15))
+                .map(tick -> ServerSentEvent.<ScoreUpdateEvent>builder().comment("keep-alive").build());
+
+        // Merge them together so the connection never idles and dies
+        return Flux.merge(dataStream, keepAliveStream);
     }
 
 }

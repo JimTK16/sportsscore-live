@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SportsScore Live Simulator</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 2rem;
+        background: #f4f4f9;
+      }
+      .scoreboard {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        max-width: 400px;
+      }
+      .score {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #e11d48;
+      }
+      .status {
+        color: #16a34a;
+        font-weight: bold;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scoreboard">
+      <h2>Live Scoreboard</h2>
+      <p class="status" id="status">🔴 Waiting for match to start...</p>
+      <h3 id="teams">Team A vs Team B</h3>
+      <p class="score" id="score">0 - 0</p>
+    </div>
+
+    <script>
+      // 1. Connect to your Notification Service
+      const eventSource = new EventSource(
+        'http://localhost:8082/api/notifications/stream'
+      )
+
+      // 2. Listen for incoming messages
+      eventSource.onmessage = function (event) {
+        console.log('New score received:', event.data)
+
+        // Parse the JSON data sent from Kafka -> Spring WebFlux
+        const matchData = JSON.parse(event.data)
+
+        // 3. Update the HTML dynamically
+        document.getElementById('teams').innerText =
+          `${matchData.homeTeam} vs ${matchData.awayTeam}`
+        document.getElementById('score').innerText =
+          `${matchData.homeScore} - ${matchData.awayScore}`
+        document.getElementById('status').innerText = `🔴 ${matchData.status}`
+      }
+
+      eventSource.onerror = function (error) {
+        console.error('Lost connection to stream.', error)
+      }
+    </script>
+  </body>
+</html>
