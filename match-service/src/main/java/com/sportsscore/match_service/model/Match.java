@@ -1,5 +1,7 @@
 package com.sportsscore.match_service.model;
 
+import java.io.Serializable;
+
 import jakarta.persistence.*;
 
 import lombok.Getter;
@@ -11,7 +13,7 @@ import lombok.ToString;
 @ToString
 @Entity
 @Table(name = "matches")
-public class Match {
+public class Match implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -5,6 +5,13 @@ spring:
   application:
     name: match-service
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  cache:
+    type: redis
+
   datasource:
     url: jdbc:postgresql://localhost:5433/sportsscoredb
     username: admin
