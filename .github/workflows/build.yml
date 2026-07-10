@@ -1,0 +1,33 @@
+name: Java CI with Gradle
+
+# This triggers the pipeline every time you push to the main branch
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+jobs:
+  build:
+    # GitHub provides a free Ubuntu server with Docker pre-installed!
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle' # Speeds up future builds by caching dependencies
+
+      - name: Grant execute permission for gradlew
+        working-directory: ./match-service
+        run: chmod +x gradlew
+
+      - name: Build and Run Integration Tests (with Testcontainers)
+        working-directory: ./match-service
+        # This command compiles the code and spins up Docker containers for testing
+        run: ./gradlew build
