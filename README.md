@@ -1,190 +1,82 @@
-# 🏀 SportsScore Live
+# SportsScore Live
 
-A real-time sports score notification system built with a **microservices** and **event-driven architecture**.
+An event-driven live-score platform that publishes score changes through Kafka and delivers them to browsers in real time with reactive Server-Sent Events (SSE).
 
-SportsScore Live broadcasts live sports score updates to thousands of concurrent users with minimal latency. The application is built using **Spring Boot 4.x**, **Apache Kafka**, **Redis**, and **Spring WebFlux** to deliver scalable, real-time notifications through **Server-Sent Events (SSE)**.
+![Architecture](https://img.shields.io/badge/architecture-event--driven-36d399) ![Java](https://img.shields.io/badge/Java-21-f89820) ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4-6db33f)
 
----
+## What it demonstrates
 
-# 🏗️ Architecture
+- Kafka-backed asynchronous messaging between independently deployable services.
+- Reactive WebFlux SSE fan-out to connected browser clients.
+- PostgreSQL persistence and Redis-backed reads in the Match Service.
+- Request validation and structured API errors.
+- Integration tests with real PostgreSQL and Kafka containers via Testcontainers.
+- A browser-based score simulator that exercises the complete pipeline.
 
-## Data Flow
+## Architecture
 
 ```text
-                  +---------------------+
-                  |     Client API      |
-                  +----------+----------+
-                             |
-                             v
-                   +-------------------+
-                   |   Match Service   |
-                   |-------------------|
-                   | Spring Boot       |
-                   | PostgreSQL        |
-                   | Redis Cache       |
-                   +---------+---------+
-                             |
-                  Publish ScoreUpdateEvent
-                             |
-                             v
-                   +-------------------+
-                   |   Apache Kafka    |
-                   +---------+---------+
-                             |
-                    Consume Events
-                             |
-                             v
-              +-----------------------------+
-              | Notification Service        |
-              | Spring WebFlux + SSE        |
-              +-------------+---------------+
-                            |
-                  Server-Sent Events (SSE)
-                            |
-                            v
-                    +---------------+
-                    | Web Browser   |
-                    | index.html    |
-                    +---------------+
+Dashboard ──REST──> Match Service ──> PostgreSQL
+    │                   │                 │
+    │                   └── ScoreUpdateEvent ──> Kafka
+    │                                                │
+    └──────────── SSE <── Notification Service <─────┘
+                         (Spring WebFlux)
 ```
 
-### Match Service (Producer)
+`Match Service` owns match state. When a score changes, it persists the update, invalidates the match-list cache, and emits a Kafka event keyed by match ID. `Notification Service` consumes that event and broadcasts it to browser subscribers through an SSE stream.
 
-The Match Service exposes REST APIs for creating matches and updating scores.
+## Run locally
 
-When a score changes, it:
-
-- Saves the updated match to PostgreSQL
-- Invalidates the Redis cache
-- Publishes a `ScoreUpdateEvent` JSON message to Kafka
-
-### Apache Kafka (Event Broker)
-
-Kafka acts as the messaging backbone between services by:
-
-- Decoupling producers and consumers
-- Providing reliable event delivery
-- Supporting high-throughput event processing
-
-### Notification Service (Consumer)
-
-The Notification Service:
-
-- Consumes score update events from Kafka
-- Streams updates to connected browsers using **Server-Sent Events (SSE)**
-- Uses Spring WebFlux for fully reactive, non-blocking communication
-
----
-
-# 💻 Tech Stack
-
-| Category           | Technology                       |
-| ------------------ | -------------------------------- |
-| Language           | Java 21                          |
-| Framework          | Spring Boot 4.0.6                |
-| Reactive Streaming | Spring WebFlux (Project Reactor) |
-| Messaging          | Apache Kafka                     |
-| Database           | PostgreSQL                       |
-| Cache              | Redis                            |
-| Testing            | JUnit 5, Testcontainers          |
-| Infrastructure     | Docker Compose                   |
-| CI/CD              | GitHub Actions                   |
-| API Documentation  | Swagger / OpenAPI 3              |
-
----
-
-# 🚀 Quick Start
-
-## Prerequisites
-
-- Java 21
-- Docker
-- Docker Compose
-
----
-
-## 1. Start Infrastructure
-
-Launch Kafka, Zookeeper, PostgreSQL, and Redis.
+The quickest route is Docker Compose. It starts PostgreSQL, Redis, Kafka, both services, and the dashboard:
 
 ```bash
-docker-compose up -d
+docker compose up --build
 ```
 
----
+Then open [http://localhost:8080](http://localhost:8080). Create a match and submit scores from the built-in simulator; updates should appear instantly on the live scoreboard.
 
-## 2. Start the Microservices
+Useful endpoints:
 
-### Terminal 1 – Match Service
+- Dashboard: `http://localhost:8080`
+- Match API and Swagger UI: `http://localhost:8081/swagger-ui/index.html`
+- Notification SSE stream: `http://localhost:8082/api/notifications/stream`
+
+To run services outside Docker, start infrastructure with `docker compose up -d postgres redis zookeeper kafka`, then run `./gradlew bootRun` from each service directory.
+
+## API examples
+
+Create a match:
 
 ```bash
-cd match-service
-./gradlew bootRun
+curl -X POST http://localhost:8081/api/matches \
+  -H "Content-Type: application/json" \
+  -d '{"homeTeam":"Melbourne United","awayTeam":"Sydney Kings"}'
 ```
 
-### Terminal 2 – Notification Service
+Update its score (which produces the live event):
 
 ```bash
-cd notification-service
-./mvnw spring-boot:run
+curl -X PUT http://localhost:8081/api/matches/1 \
+  -H "Content-Type: application/json" \
+  -d '{"homeScore":92,"awayScore":88}'
 ```
 
-> **Note:** Depending on how each service was generated, use either `./gradlew` or `./mvnw`.
-
----
-
-## 3. Test Real-Time Updates
-
-1. Open the included `index.html` using the **Live Server** extension in VS Code.
-2. Open Swagger UI:
-
-```
-http://localhost:8081/swagger-ui.html
-```
-
-3. Call the following endpoint:
-
-```
-PUT /api/matches/{id}/score
-```
-
-4. Watch the connected browser receive live score updates instantly via **Server-Sent Events (SSE)** without refreshing the page.
-
----
-
-# 🧪 Testing
-
-Integration tests are powered by **Testcontainers**.
-
-The test suite automatically starts temporary Docker containers for:
-
-- PostgreSQL
-- Apache Kafka
-
-This enables end-to-end verification of:
-
-- Database persistence
-- Kafka message publishing
-- Spring Boot integration
-
-Run the tests:
+## Testing
 
 ```bash
-cd match-service
-./gradlew test
+cd match-service && ./gradlew test
+cd ../notification-service && ./gradlew test
 ```
 
----
+The Match Service suite validates database persistence and Kafka event publication against Testcontainers. The Notification Service suite includes stream broadcast coverage.
 
-# ✨ Key Features
+## Engineering decisions and next steps
 
-- Event-driven microservices architecture
-- Real-time score notifications via Server-Sent Events (SSE)
-- Apache Kafka asynchronous messaging
-- Redis caching for improved read performance
-- PostgreSQL persistence
-- Reactive programming with Spring WebFlux
-- Integration testing with Testcontainers
-- Docker Compose local development
-- Swagger/OpenAPI documentation
-- CI/CD ready with GitHub Actions
+Kafka decouples score writes from client delivery and provides a scalable event backbone; SSE is a simple, efficient one-way transport for browser score updates. Redis reduces repeat reads of the match list.
+
+This demo intentionally uses an in-memory notification sink, which is suitable for a single Notification Service instance. A production deployment should use a shared fan-out strategy across replicas. Likewise, reliable publication across a database write and Kafka requires the transactional-outbox pattern with retries and idempotent consumers; those are the next resilience improvements.
+
+## Stack
+
+Java 21 · Spring Boot 4 · Spring MVC · Spring WebFlux · Apache Kafka · PostgreSQL · Redis · Docker Compose · Testcontainers · OpenAPI

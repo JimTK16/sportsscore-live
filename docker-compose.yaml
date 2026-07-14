@@ -40,3 +40,40 @@ services:
       - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT, PLAINTEXT_HOST:PLAINTEXT
       - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+
+  match-service:
+    build: ./match-service
+    container_name: sportsscore-match-service
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sportsscoredb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - '8081:8081'
+
+  notification-service:
+    build: ./notification-service
+    container_name: sportsscore-notification-service
+    depends_on:
+      - kafka
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - '8082:8082'
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: sportsscore-dashboard
+    depends_on:
+      - match-service
+      - notification-service
+    ports:
+      - '8080:80'

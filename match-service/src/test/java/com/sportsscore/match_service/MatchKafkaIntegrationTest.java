@@ -84,10 +84,7 @@ class MatchKafkaIntegrationTest {
     @Test
     void whenScoreIsUpdated_thenEventIsPublishedToKafka() throws InterruptedException {
         // Arrange
-        Match match = new Match();
-        match.setHomeTeam("Melbourne United");
-        match.setAwayTeam("Sydney Kings");
-        Match savedMatch = matchService.createMatch(match);
+        Match savedMatch = matchService.createMatch("Melbourne United", "Sydney Kings");
 
         // Act
         matchService.updateScore(savedMatch.getId(), 105, 98);

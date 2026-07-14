@@ -5,6 +5,8 @@ import java.util.List;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.sportsscore.match_service.model.Match;
 import com.sportsscore.match_service.model.ScoreUpdateEvent;
@@ -15,6 +17,7 @@ import jakarta.transaction.Transactional;
 
 @Service
 public class MatchService {
+    private static final Logger log = LoggerFactory.getLogger(MatchService.class);
     private final MatchRepository matchRepository;
     private final MatchEventPublisher eventPublisher;
 
@@ -24,14 +27,17 @@ public class MatchService {
     }
 
     @CacheEvict(value = "matches", allEntries = true)
-    public Match createMatch(Match match) {
+    public Match createMatch(String homeTeam, String awayTeam) {
+        Match match = new Match();
+        match.setHomeTeam(homeTeam);
+        match.setAwayTeam(awayTeam);
         match.setStatus(Match.MatchStatus.SCHEDULED);
         return matchRepository.save(match);
     }
 
     @Cacheable(value = "matches")
     public List<Match> getAllMatches() {
-        System.out.println("Fetching matches from Postgres database....");
+        log.debug("Fetching matches from PostgreSQL database");
         return matchRepository.findAll();
     }
 
@@ -39,7 +45,7 @@ public class MatchService {
     @CacheEvict(value = "matches", allEntries = true)
     public Match updateScore(Long matchId, int homeScore, int awayScore) {
         Match match = matchRepository.findById(matchId)
-                .orElseThrow(() -> new RuntimeException("Match not found with id: " + matchId));
+                .orElseThrow(() -> new MatchNotFoundException(matchId));
 
         match.setHomeScore(homeScore);
         match.setAwayScore(awayScore);

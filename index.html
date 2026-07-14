@@ -3,64 +3,48 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SportsScore Live Simulator</title>
+    <title>SportsScore Live</title>
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 2rem;
-        background: #f4f4f9;
-      }
-      .scoreboard {
-        background: white;
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        max-width: 400px;
-      }
-      .score {
-        font-size: 2rem;
-        font-weight: bold;
-        color: #e11d48;
-      }
-      .status {
-        color: #16a34a;
-        font-weight: bold;
-        font-size: 0.9rem;
-      }
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #07111f; color: #eaf2ff; }
+      * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; background: radial-gradient(circle at top, #15345b, #07111f 55%); }
+      main { width: min(1100px, calc(100% - 32px)); margin: auto; padding: 48px 0; }
+      header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:32px; }
+      h1 { font-size:clamp(2rem, 5vw, 3.6rem); margin:0; letter-spacing:-.06em; } h1 span { color:#36d399; }
+      .subtitle { color:#9db0c9; margin:9px 0 0; } .connection { font-size:.85rem; padding:8px 12px; border:1px solid #365172; border-radius:999px; white-space:nowrap; }
+      .connection.online { color:#72f2bd; border-color:#24734f; } .layout { display:grid; grid-template-columns: 1fr 310px; gap:24px; }
+      .scores, .panel { background:rgba(13,31,53,.86); border:1px solid #264667; border-radius:18px; padding:22px; box-shadow:0 18px 50px #0004; }
+      .scores-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; } h2 { margin:0; font-size:1.1rem; } .muted { color:#91a7c3; font-size:.86rem; }
+      .cards { display:grid; gap:12px; } .match { background:#0a1c31; border:1px solid #203c59; border-radius:13px; padding:16px; }
+      .match-top, .teams { display:flex; justify-content:space-between; gap:16px; align-items:center; } .live { color:#ff7a8f; font-weight:700; font-size:.75rem; letter-spacing:.08em; }
+      .teams { font-size:1.08rem; margin-top:11px; } .score { font-size:1.8rem; font-weight:800; letter-spacing:.05em; white-space:nowrap; }
+      form { display:grid; gap:12px; } label { display:grid; gap:6px; font-size:.83rem; color:#b5c8df; } input { width:100%; border:1px solid #385675; background:#071727; color:#fff; padding:10px; border-radius:8px; font:inherit; }
+      .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; } button { border:0; border-radius:8px; padding:11px; background:#36d399; color:#052116; font-weight:800; cursor:pointer; } button.secondary { background:#274969; color:#eaf2ff; } .message { min-height:20px; font-size:.82rem; color:#ff9aa9; }
+      @media (max-width:760px) { header, .layout { display:block; } .connection { display:inline-block; margin-top:18px; } .panel { margin-top:20px; } }
     </style>
   </head>
   <body>
-    <div class="scoreboard">
-      <h2>Live Scoreboard</h2>
-      <p class="status" id="status">🔴 Waiting for match to start...</p>
-      <h3 id="teams">Team A vs Team B</h3>
-      <p class="score" id="score">0 - 0</p>
-    </div>
-
+    <main>
+      <header><div><h1>SportsScore <span>Live</span></h1><p class="subtitle">Event-driven scores, delivered in real time.</p></div><div id="connection" class="connection">● Connecting to live feed…</div></header>
+      <div class="layout">
+        <section class="scores"><div class="scores-title"><h2>Live scoreboard</h2><span id="updated" class="muted">Waiting for events</span></div><div id="cards" class="cards"><p class="muted">Create a match, then publish a score update to see it here.</p></div></section>
+        <aside class="panel"><h2>Score simulator</h2><p class="muted">Use this to exercise the whole API → Kafka → SSE pipeline.</p>
+          <form id="create-form"><label>Home team<input name="homeTeam" required maxlength="80" placeholder="Melbourne United" /></label><label>Away team<input name="awayTeam" required maxlength="80" placeholder="Sydney Kings" /></label><button>Create match</button></form>
+          <hr style="border-color:#264667;margin:22px 0"><form id="score-form"><label>Match<input name="matchId" type="number" min="1" required placeholder="Match ID" /></label><div class="row"><label>Home score<input name="homeScore" type="number" min="0" max="999" value="0" required /></label><label>Away score<input name="awayScore" type="number" min="0" max="999" value="0" required /></label></div><button class="secondary">Publish score</button></form><p id="message" class="message"></p>
+        </aside>
+      </div>
+    </main>
     <script>
-      // 1. Connect to your Notification Service
-      const eventSource = new EventSource(
-        'http://localhost:8082/api/notifications/stream'
-      )
-
-      // 2. Listen for incoming messages
-      eventSource.onmessage = function (event) {
-        console.log('New score received:', event.data)
-
-        // Parse the JSON data sent from Kafka -> Spring WebFlux
-        const matchData = JSON.parse(event.data)
-
-        // 3. Update the HTML dynamically
-        document.getElementById('teams').innerText =
-          `${matchData.homeTeam} vs ${matchData.awayTeam}`
-        document.getElementById('score').innerText =
-          `${matchData.homeScore} - ${matchData.awayScore}`
-        document.getElementById('status').innerText = `🔴 ${matchData.status}`
-      }
-
-      eventSource.onerror = function (error) {
-        console.error('Lost connection to stream.', error)
-      }
+      const matchApi = 'http://localhost:8081/api/matches'; const streamUrl = 'http://localhost:8082/api/notifications/stream';
+      const cards = document.querySelector('#cards'), message = document.querySelector('#message'), scores = new Map();
+      const escape = text => String(text).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+      function render() { cards.innerHTML = scores.size ? [...scores.values()].map(match => `<article class="match"><div class="match-top"><span class="live">● ${escape(match.status)}</span><span class="muted">Match #${match.matchId}</span></div><div class="teams"><span>${escape(match.homeTeam)} <b>vs</b> ${escape(match.awayTeam)}</span><span class="score">${match.homeScore} – ${match.awayScore}</span></div></article>`).join('') : '<p class="muted">No live matches yet.</p>'; }
+      const source = new EventSource(streamUrl); const connection = document.querySelector('#connection');
+      source.onopen = () => { connection.textContent = '● Live feed connected'; connection.classList.add('online'); };
+      source.onerror = () => { connection.textContent = '● Reconnecting to live feed…'; connection.classList.remove('online'); };
+      source.onmessage = event => { const match = JSON.parse(event.data); scores.set(match.matchId, match); render(); document.querySelector('#updated').textContent = `Updated ${new Date().toLocaleTimeString()}`; };
+      async function request(url, options) { const response = await fetch(url, options); const body = await response.json(); if (!response.ok) throw new Error(body.message || 'Request failed'); return body; }
+      document.querySelector('#create-form').onsubmit = async event => { event.preventDefault(); const form = new FormData(event.target); try { const match = await request(matchApi, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(Object.fromEntries(form))}); document.querySelector('[name=matchId]').value = match.id; message.style.color='#72f2bd'; message.textContent = `Created match #${match.id}. Publish its first score.`; event.target.reset(); } catch (error) { message.style.color='#ff9aa9'; message.textContent=error.message; } };
+      document.querySelector('#score-form').onsubmit = async event => { event.preventDefault(); const form = new FormData(event.target); const id=form.get('matchId'); const body={homeScore:Number(form.get('homeScore')),awayScore:Number(form.get('awayScore'))}; try { await request(`${matchApi}/${id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}); message.style.color='#72f2bd'; message.textContent='Score update published.'; } catch (error) { message.style.color='#ff9aa9'; message.textContent=error.message; } };
     </script>
   </body>
 </html>
